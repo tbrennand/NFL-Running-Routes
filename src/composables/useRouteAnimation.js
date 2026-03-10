@@ -32,7 +32,11 @@ export function useRouteAnimation(puzzle, traceRoute, defenderKeys) {
     const path = traceRoute()
     const endKey = `${puzzle.value.end[0]}-${puzzle.value.end[1]}`
 
+    console.log('[runRoute] path length=' + path.length + ' endKey=' + endKey)
+    console.log('[runRoute] path: [' + path.join(', ') + ']')
+
     if (path.length <= 1) {
+      console.log('[runRoute] path too short → incomplete')
       animationResult.value = 'incomplete'
       isRunning.value = false
       return 'incomplete'
@@ -43,6 +47,7 @@ export function useRouteAnimation(puzzle, traceRoute, defenderKeys) {
       animatingCell.value = cell
 
       if (defenderKeys.value.has(cell)) {
+        console.log('[runRoute] SACK at cell ' + cell + ' (step ' + i + ')')
         await sleep(400)
         animationResult.value = 'sacked'
         animatingCell.value = null
@@ -62,6 +67,7 @@ export function useRouteAnimation(puzzle, traceRoute, defenderKeys) {
       result = 'incomplete'
     }
 
+    console.log('[runRoute] result=' + result + ' lastCell=' + lastCell)
     animationResult.value = result
     animatingCell.value = null
     isRunning.value = false

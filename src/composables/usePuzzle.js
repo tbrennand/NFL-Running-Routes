@@ -134,28 +134,33 @@ export function usePuzzle() {
     puzzle.value ? puzzle.value.colClues.map((clue, i) => colCounts.value[i] === clue) : []
   )
 
-  // Trace the route by following piece connections from start
   function traceRoute() {
     if (!puzzle.value) return []
     const { start, end, gridSize } = puzzle.value
+    const startKey = cellKey(start[0], start[1])
     const endKey = cellKey(end[0], end[1])
     const segments = cellSegments.value
     const path = []
     const visited = new Set()
-    let current = cellKey(start[0], start[1])
+    let current = startKey
     let prevDir = null
+
+    console.log('[traceRoute] start=' + startKey + ' end=' + endKey)
 
     while (current) {
       path.push(current)
       visited.add(current)
 
-      if (current === endKey) break
+      if (current === endKey) {
+        console.log('[traceRoute] REACHED END at ' + current)
+        break
+      }
 
       const [r, c] = current.split('-').map(Number)
       const segType = segments.get(current)
-      if (!segType) break
+      if (!segType) { console.log('[traceRoute] no segment at ' + current + ' — break'); break }
       const conns = SEGMENT_CONNECTIONS[segType]
-      if (!conns) break
+      if (!conns) { console.log('[traceRoute] no conns for ' + segType + ' — break'); break }
       const neighbors = getNeighbors(r, c, gridSize)
       let nextCell = null
 
@@ -167,8 +172,8 @@ export function usePuzzle() {
         const nbKey = cellKey(...nbCoords)
         if (visited.has(nbKey)) continue
 
-        // Check if neighbor is a defender → sack
         if (defenderKeys.value.has(nbKey)) {
+          console.log('[traceRoute] SACK: from ' + current + ' (' + segType + ') going ' + dir + ' into defender ' + nbKey)
           path.push(nbKey)
           return path
         }
@@ -181,9 +186,11 @@ export function usePuzzle() {
         break
       }
 
-      if (!nextCell) break
+      if (!nextCell) { console.log('[traceRoute] dead end at ' + current + ' (' + segType + ')'); break }
       current = nextCell
     }
+
+    console.log('[traceRoute] path: [' + path.join(', ') + '] lastCell=' + path[path.length - 1])
     return path
   }
 
