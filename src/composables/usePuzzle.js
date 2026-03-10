@@ -84,7 +84,12 @@ export function usePuzzle() {
   const defenders = computed(() => puzzle.value?.defenders || [])
   const defenderKeys = computed(() => new Set(defenders.value.map(([r, c]) => cellKey(r, c))))
   const visibleFrom = computed(() => puzzle.value?.visibleFrom ?? 0)
-  const visibleTo = computed(() => puzzle.value ? puzzle.value.gridSize - 1 : 9)
+  const visibleTo = computed(() => puzzle.value?.visibleTo ?? (puzzle.value ? puzzle.value.gridSize - 1 : 9))
+
+  const allPiecesUsed = computed(() => {
+    if (!puzzle.value?.inventory) return false
+    return Object.values(inventory.value).every(count => count <= 0)
+  })
 
   const inventory = computed(() => {
     if (!puzzle.value?.inventory) return {}
@@ -226,7 +231,7 @@ export function usePuzzle() {
 
   return {
     puzzle, filledCells, placedPieces, selectedPiece,
-    defenders, defenderKeys, inventory, visibleFrom, visibleTo,
+    defenders, defenderKeys, inventory, allPiecesUsed, visibleFrom, visibleTo,
     rowCounts, colCounts, rowSatisfied, colSatisfied,
     cellSegments, traceRoute,
     loadPuzzle, placePiece, selectPiece, reset, showSolution,

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { PUZZLES } from './data/puzzles.js'
 import { usePuzzle } from './composables/usePuzzle.js'
 import { useRouteAnimation } from './composables/useRouteAnimation.js'
@@ -8,7 +8,7 @@ import PiecePalette from './components/PiecePalette.vue'
 
 const {
   puzzle, filledCells, selectedPiece,
-  defenders, defenderKeys, inventory, visibleFrom, visibleTo,
+  defenders, defenderKeys, inventory, allPiecesUsed, visibleFrom, visibleTo,
   rowCounts, colCounts, rowSatisfied, colSatisfied,
   cellSegments, traceRoute,
   loadPuzzle, placePiece, selectPiece, reset, showSolution,
@@ -113,6 +113,12 @@ function handleNewDrive() {
 
 onMounted(() => {
   startDrive()
+})
+
+watch(allPiecesUsed, (used) => {
+  if (used && !isRunning.value && !gameOver.value && !animationResult.value) {
+    nextTick(() => handleRunRoute())
+  }
 })
 </script>
 
