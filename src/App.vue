@@ -5,6 +5,11 @@ import { usePuzzle } from './composables/usePuzzle.js'
 import { useRouteAnimation } from './composables/useRouteAnimation.js'
 import Grid from './components/Grid.vue'
 import PiecePalette from './components/PiecePalette.vue'
+import tdVideo from './assets/touchdown.mp4'
+import fdVideo from './assets/firstdown.mp4'
+import incVideo from './assets/incomplete.mp4'
+import toVideo from './assets/turnover.mp4'
+import sackedVideo from './assets/sacked.mp4'
 
 const {
   puzzle, filledCells, selectedPiece,
@@ -18,6 +23,16 @@ const {
   animatingCell, isRunning, animationResult, resultMessage,
   runRoute, dismissResult, setResult,
 } = useRouteAnimation(puzzle, traceRoute, defenderKeys)
+
+const resultVideos = {
+  touchdown: tdVideo,
+  firstdown: fdVideo,
+  incomplete: incVideo,
+  sacked: sackedVideo,
+  turnover: toVideo,
+}
+
+const showResultDetails = ref(false)
 
 // ── Drive state ──
 const currentPlayIndex = ref(0)
@@ -58,6 +73,7 @@ function startDrive() {
   currentPlayIndex.value = 0
   currentDown.value = 1
   gameOver.value = false
+  showResultDetails.value = false
   loadPuzzle(PUZZLES[0])
 }
 
@@ -74,12 +90,14 @@ function handleReset() {
 
 async function handleRunRoute() {
   if (isRunning.value || gameOver.value) return
+  showResultDetails.value = false
   const result = await runRoute()
   // Drive logic is handled when user dismisses the result overlay
 }
 
 function handleResultDismiss() {
   const result = animationResult.value
+  showResultDetails.value = false
   dismissResult()
 
   if (result === 'firstdown' || result === 'touchdown') {
@@ -108,6 +126,7 @@ function handleResultDismiss() {
 
 function handleNewDrive() {
   dismissResult()
+  showResultDetails.value = false
   startDrive()
 }
 
@@ -120,6 +139,30 @@ watch(allPiecesUsed, (used) => {
     nextTick(() => handleRunRoute())
   }
 })
+
+watch(resultMessage, (msg) => {
+  // If there's a video for this result type, wait for it to finish
+  // before showing the detail card. Otherwise, show immediately.
+  if (!msg) {
+    showResultDetails.value = false
+  } else {
+    showResultDetails.value = !resultVideos[msg.type]
+  }
+})
+
+// If you fail on 4th down, skip the extra \"sacked/incomplete\" screen
+// and go straight to the TURNOVER animation.
+watch(animationResult, (val) => {
+  if (!val) return
+  if (currentDown.value === 4 && (val === 'sacked' || val === 'incomplete')) {
+    gameOver.value = true
+    setResult('turnover')
+  }
+})
+
+function handleResultVideoEnded() {
+  showResultDetails.value = true
+}
 </script>
 
 <template>
@@ -230,37 +273,48 @@ watch(allPiecesUsed, (used) => {
     <!-- Result overlay -->
     <Transition name="celebrate">
       <div v-if="resultMessage" class="celebration-overlay" :class="`overlay--${resultMessage.type}`">
-        <!-- Confetti / particles for touchdown -->
-        <div v-if="resultMessage.type === 'touchdown'" class="confetti-container">
-          <span v-for="i in 30" :key="i" class="confetti-piece" :style="{ '--i': i }"></span>
-        </div>
-
-        <!-- Chain-move animation for first down -->
-        <div v-if="resultMessage.type === 'firstdown'" class="chains-anim">
-          <div class="chain-marker chain-marker--move">
-            <svg viewBox="0 0 30 50" class="chain-svg"><rect x="11" y="0" width="8" height="50" rx="3" fill="#ff6b35"/><rect x="2" y="0" width="26" height="16" rx="3" fill="#ff6b35"/><text x="15" y="12" text-anchor="middle" fill="white" font-size="9" font-weight="900">1ST</text></svg>
+        <div class="celebration-inner">
+          <!-- Confetti / particles for touchdown -->
+          <div v-if="resultMessage.type === 'touchdown'" class="confetti-container">
+            <span v-for="i in 30" :key="i" class="confetti-piece" :style="{ '--i': i }"></span>
           </div>
-        </div>
 
-        <div class="celebration-card" :class="`celebrate--${resultMessage.type}`">
-          <div class="celebration-icon-wrap">
-            <div v-if="resultMessage.type === 'touchdown'" class="td-burst"></div>
-            <div class="celebration-emoji">{{ resultMessage.emoji }}</div>
+          <!-- Result video first -->
+          <div class="celebration-video-wrap" v-if="resultVideos[resultMessage.type]">
+            <video
+              class="celebration-video"
+              :src="resultVideos[resultMessage.type]"
+              autoplay
+              muted
+              playsinline
+              @ended="handleResultVideoEnded"
+            />
           </div>
-          <h2 class="celebration-title">{{ resultMessage.title }}</h2>
-          <p class="celebration-msg">{{ resultMessage.msg }}</p>
 
-          <p v-if="resultMessage.type !== 'touchdown' && resultMessage.type !== 'turnover' && resultMessage.type !== 'firstdown'" class="celebration-down-hint">
-            {{ currentDown >= 4 ? '4th down — last chance!' : `Next attempt: ${DOWN_NAMES[currentDown]} down` }}
-          </p>
+          <!-- Result box underneath -->
+          <div class="celebration-card" :class="`celebrate--${resultMessage.type}`">
+            <div class="celebration-icon-wrap" v-if="!resultVideos[resultMessage.type] || showResultDetails">
+              <div v-if="resultMessage.type === 'touchdown'" class="td-burst"></div>
+              <div class="celebration-emoji">{{ resultMessage.emoji }}</div>
+            </div>
+            <h2 v-if="showResultDetails" class="celebration-title">{{ resultMessage.title }}</h2>
+            <p v-if="showResultDetails" class="celebration-msg">{{ resultMessage.msg }}</p>
 
-          <div class="celebration-actions">
-            <button v-if="resultMessage.type === 'turnover'" class="celebration-btn primary" @click.stop="handleNewDrive">New Drive</button>
-            <button v-else-if="resultMessage.type === 'touchdown'" class="celebration-btn td-btn" @click.stop="handleNewDrive">New Drive</button>
-            <button v-else-if="resultMessage.type === 'firstdown'" class="celebration-btn fd-btn" @click.stop="handleResultDismiss">Next Play</button>
-            <button v-else class="celebration-btn primary" @click.stop="handleResultDismiss">
-              {{ currentDown >= 4 ? 'Last Chance' : 'Try Again' }}
-            </button>
+            <p
+              v-if="showResultDetails && resultMessage.type !== 'touchdown' && resultMessage.type !== 'turnover' && resultMessage.type !== 'firstdown'"
+              class="celebration-down-hint"
+            >
+              {{ currentDown >= 4 ? '4th down — last chance!' : `Next attempt: ${DOWN_NAMES[currentDown]} down` }}
+            </p>
+
+            <div v-if="showResultDetails" class="celebration-actions">
+              <button v-if="resultMessage.type === 'turnover'" class="celebration-btn primary" @click.stop="handleNewDrive">New Drive</button>
+              <button v-else-if="resultMessage.type === 'touchdown'" class="celebration-btn td-btn" @click.stop="handleNewDrive">New Drive</button>
+              <button v-else-if="resultMessage.type === 'firstdown'" class="celebration-btn fd-btn" @click.stop="handleResultDismiss">Next Play</button>
+              <button v-else class="celebration-btn primary" @click.stop="handleResultDismiss">
+                {{ currentDown >= 4 ? 'Last Chance' : 'Try Again' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -549,6 +603,14 @@ watch(allPiecesUsed, (used) => {
   animation: overlay-in 0.3s ease-out;
 }
 
+.celebration-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0 1rem;
+}
+
 .overlay--touchdown {
   background: radial-gradient(ellipse at center, rgba(0,60,20,0.85), rgba(0,0,0,0.9));
 }
@@ -575,9 +637,9 @@ watch(allPiecesUsed, (used) => {
 .celebration-card {
   background: var(--color-bg-card);
   border-radius: 12px;
-  padding: 2rem 2rem;
+  padding: 1.5rem 2rem 1.8rem;
   text-align: center;
-  max-width: 340px;
+  max-width: 420px;
   width: 90%;
   position: relative;
   z-index: 2;
@@ -646,6 +708,21 @@ watch(allPiecesUsed, (used) => {
   align-items: center;
   justify-content: center;
   margin-bottom: 0.4rem;
+}
+
+.celebration-video-wrap {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+
+.celebration-video {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .celebration-emoji {

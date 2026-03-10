@@ -86,12 +86,27 @@ const fieldMarkings = computed(() => {
       lines.push({ y, width: isGoalLine ? 0.14 : 0.08, opacity: isGoalLine ? 1 : 0.9 })
     }
 
-    // Yard numbers in the middle of each row
+    // Yard numbers painted across the field, rotated like broadcast view
+    // We draw one on each side, rotated in opposite directions, sitting just
+    // inside the sideline and straddling the yard line visually.
     if (yn !== null) {
+      // Very small, stencil-like numbers straddling the yard line.
       const midY = y + 0.5
       numbers.push(
-        { x: 1.3, y: midY, text: String(yn), anchor: 'middle' },
-        { x: c - 1.3, y: midY, text: String(yn), anchor: 'middle' },
+        {
+          x: 1.15,
+          y: midY,
+          text: String(yn),
+          anchor: 'middle',
+          rotate: -90,
+        },
+        {
+          x: c - 1.15,
+          y: midY,
+          text: String(yn),
+          anchor: 'middle',
+          rotate: 90,
+        },
       )
     }
 
@@ -128,10 +143,10 @@ const fieldMarkings = computed(() => {
     }
   }
 
-    // Bottom yard line (line of scrimmage)
-    if (vt === props.puzzle.gridSize - 1) {
-      lines.push({ y: visibleRowCount.value, width: 0.08, opacity: 0.9 })
-    }
+  // Bottom yard line (line of scrimmage)
+  if (vt === props.puzzle.gridSize - 1) {
+    lines.push({ y: visibleRowCount.value, width: 0.08, opacity: 0.9 })
+  }
 
   return { lines, numbers, hashMarks, sidelineTicks }
 })
@@ -218,7 +233,7 @@ const fieldMarkings = computed(() => {
               stroke-opacity="0.65"
             />
 
-            <!-- Yard numbers -->
+            <!-- Yard numbers (rotated along the field like real broadcast view) -->
             <text
               v-for="(num, i) in fieldMarkings.numbers"
               :key="'yn-' + i"
@@ -227,10 +242,11 @@ const fieldMarkings = computed(() => {
               :text-anchor="num.anchor"
               dominant-baseline="central"
               fill="white"
-              fill-opacity="0.4"
-              font-size="0.75"
+              fill-opacity="0.55"
+              font-size="0.42"
               font-weight="900"
               font-family="'Segoe UI', Arial, sans-serif"
+              :transform="`rotate(${num.rotate} ${num.x} ${num.y})`"
             >{{ num.text }}</text>
           </svg>
 
