@@ -137,7 +137,8 @@ export function usePuzzle() {
   // Trace the route by following piece connections from start
   function traceRoute() {
     if (!puzzle.value) return []
-    const { start, gridSize } = puzzle.value
+    const { start, end, gridSize } = puzzle.value
+    const endKey = cellKey(end[0], end[1])
     const segments = cellSegments.value
     const path = []
     const visited = new Set()
@@ -147,6 +148,9 @@ export function usePuzzle() {
     while (current) {
       path.push(current)
       visited.add(current)
+
+      if (current === endKey) break
+
       const [r, c] = current.split('-').map(Number)
       const segType = segments.get(current)
       if (!segType) break
